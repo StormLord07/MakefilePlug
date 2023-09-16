@@ -1,33 +1,32 @@
 SHELL := /bin/bash
 
-#Variables with default values or placeholders
-BUILD_DIR ?= {{BUILD_DIR}}
-TOKEN ?= {{TOKEN}}
-LOG_FILE ?= {{LOG_FILE}}
-EXEC_NAME_FILE = .exec_name
+# File paths to store parameter values
+TOKEN_FILE := .token_value
+BUILD_DIR_FILE := .build_dir_value
+LOG_FILE_FILE := .log_file_value
+EXEC_NAME_FILE := .exec_name_value
 
-# If .exec_name exists, use its value as EXEC_NAME
-ifeq ($(wildcard $(EXEC_NAME_FILE)),)
-EXEC_NAME ?= {{EXEC_NAME}}
-else
-EXEC_NAME = $(shell cat $(EXEC_NAME_FILE))
-endif
+# Default placeholders
+PLACEHOLDER := {{VALUE}}
 
-.PHONY: all debug update-vars
+# Loading parameters from files or using default values
+TOKEN := $(if $(wildcard $(TOKEN_FILE)), $(shell cat $(TOKEN_FILE)), $(PLACEHOLDER))
+BUILD_DIR := $(if $(wildcard $(BUILD_DIR_FILE)), $(shell cat $(BUILD_DIR_FILE)), $(PLACEHOLDER))
+LOG_FILE := $(if $(wildcard $(LOG_FILE_FILE)), $(shell cat $(LOG_FILE_FILE)), $(PLACEHOLDER))
+EXEC_NAME := $(if $(wildcard $(EXEC_NAME_FILE)), $(shell cat $(EXEC_NAME_FILE)), $(PLACEHOLDER))
 
-all: update-vars
+.PHONY: all debug save-params
+
+all: save-params
         mkdir -p $(BUILD_DIR) && cd $(BUILD_DIR) && cmake .. && make
-        @if [ ! -f $(EXEC_NAME_FILE) ]; then \
-                echo $$(ls $(BUILD_DIR) | head -1) > $(EXEC_NAME_FILE);
-        fi
         TOKEN=$(TOKEN) ./$(BUILD_DIR)/$(EXEC_NAME) > $(LOG_FILE)&
 
-debug: update-vars
+debug: save-params
         mkdir -p $(BUILD_DIR) && cd $(BUILD_DIR) && cmake -DCMAKE_BUILD_TYPE=Debug .. && make
         gdb ./$(BUILD_DIR)/$(EXEC_NAME)
 
-update-vars:
-        @sed -i 's/{{BUILD_DIR}}/$(BUILD_DIR)/g' Makefile
-        @sed -i 's/5/$(TOKEN)/g' Makefile
-        @sed -i 's/{{LOG_FILE}}/$(LOG_FILE)/g' Makefile
-        @sed -i 's/{{EXEC_NAME}}/$(EXEC_NAME)/g' Makefile
+save-params:
+        @if [ "$(origin TOKEN)" = "command line" ]; then echo $(TOKEN) > $(TOKEN_FILE); fi
+        @if [ "$(origin BUILD_DIR)" = "command line" ]; then echo $(BUILD_DIR) > $(BUILD_DIR_FILE); fi
+        @if [ "$(origin LOG_FILE)" = "command line" ]; then echo $(LOG_FILE) > $(LOG_FILE_FILE); fi
+        @if [ "$(origin EXEC_NAME)" = "command line" ]; then echo $(EXEC_NAME) > $(EXEC_NAME_FILE); fi
